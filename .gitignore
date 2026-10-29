@@ -1,0 +1,11 @@
+.idea/
+.git/
+.junie/
+.claude/
+**.egg-info/
+.venv/
+*.lock
+**/_build/
+**/*.zip
+**/requirements.txt
+**/__pycache__/

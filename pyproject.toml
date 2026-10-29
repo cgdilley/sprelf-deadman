@@ -1,0 +1,31 @@
+[project]
+name = "sprelf-deadman-lambdas"
+version = "v2026.10.29.0"
+authors = [
+    { name = "Christopher Dilley", email = "me@sprelf.com" },
+]
+description = "Command-line interface for cabuu utilities."
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent"
+]
+dependencies = [
+    "sprelf-json",
+    "boto3",
+    "boto3-stubs~=1.43.36",
+]
+
+[project.urls]
+repository = "https://gitlab.com/Cabuu/lambdas/backend-lambda-servermanagement.git"
+
+
+[project.scripts]
+sprelf-lambda = "Helpers.Lambda:main"
+
+[tool.uv]
+package = true
+
+[tool.uv.workspace]
+members = ["src/Lambdas/sprelf-deadman*"]

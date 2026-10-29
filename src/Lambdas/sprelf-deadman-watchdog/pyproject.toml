@@ -1,0 +1,21 @@
+[project]
+name = "sprelf-deadman-watchdog"
+version = "v2026.10.29.0"
+authors = [
+    { name = "Christopher Dilley", email = "me@sprelf.com" },
+]
+description = "Command-line interface for cabuu utilities."
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent"
+]
+dependencies = [
+    "boto3",
+    "boto3-stubs~=1.43.36",
+]
+
+[project.urls]
+repository = "https://gitlab.com/Cabuu/lambdas/backend-lambda-servermanagement.git"
+

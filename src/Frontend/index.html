@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dead Man's Switch - Check In</title>
+    <meta name="description" content="Check in to reset your Dead Man's Switch timer.">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="DeadMan">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="container">
+    <h1>Dead Man's Switch</h1>
+
+    <section id="login-view" class="hidden">
+        <h2>Log in</h2>
+        <form id="login-form">
+            <label for="login-username">Username</label>
+            <input id="login-username" name="username" type="text" autocomplete="username" required>
+
+            <label for="login-secret">Secret</label>
+            <input id="login-secret" name="secret" type="password" autocomplete="current-password" required>
+
+            <button type="submit">Log in</button>
+        </form>
+    </section>
+
+    <section id="checkin-view" class="hidden">
+        <p>Logged in as <strong id="current-user"></strong></p>
+
+        <button id="checkin-button" type="button" class="checkin">Check In</button>
+
+        <p id="status" class="status" role="status"></p>
+        <p id="error" class="error" role="alert"></p>
+
+        <p class="last-checkin">Last check-in: <span id="last-checkin">Never</span></p>
+
+        <button id="logout-button" type="button" class="secondary">Log out</button>
+    </section>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,297 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Serverless Dead-Man's Switch Wellness Check System ($0 Free Tier Architecture)
+
+Parameters:
+  DomainName:
+    Type: String
+    Description: The custom domain name for your PWA (e.g., wellness.example.com)
+    Default: deadman.sprelf.com
+  HostedZoneId:
+    Type: String
+    Description: The Route 53 Hosted Zone ID for your domain
+    Default: Z036520833IB9V921FK4G
+  AlertEmail:
+    Type: String
+    Description: The email address sending the alerts
+    Default: deadman@service.sprelf.com
+  CertificateArn:
+    Type: String
+    Description: The ACM certificate ARN for your domain
+
+Resources:
+  # ==========================================
+  # 1. DYNAMODB TABLE
+  # ==========================================
+  StateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SprelfDeadMan
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: UserId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: UserId
+          KeyType: HASH
+
+  PepperSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: sprelf/deadman_pepper
+      Description: Pepper value used to hash secrets provided to the Lambda functions
+      GenerateSecretString:
+        PasswordLength: 64
+        ExcludePunctuation: true
+
+  # ==========================================
+  # 2. IAM ROLE FOR LAMBDA FUNCTIONS
+  # ==========================================
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DeadManSwitchLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                Resource: !GetAtt StateTable.Arn
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref PepperSecret
+              - Effect: Allow
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "ses:FromAddress": !Ref AlertEmail
+
+  # ==========================================
+  # 3. LAMBDA FUNCTIONS
+  # ==========================================
+  CheckInFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: sprelf-deadman-checkin
+      Runtime: python3.11
+      Handler: Main.main
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref StateTable
+          PEPPER_SECRET_ARN: !Ref PepperSecret
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          
+          # TODO: Implement your check-in update logic here
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                  'body': json.dumps({'message': 'Check-in placeholder successful'})
+              }
+
+  WatchdogFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: sprelf-deadman-watchdog
+      Runtime: python3.11
+      Handler: Main.main
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref StateTable
+          ALERT_EMAIL: !Ref AlertEmail
+      Code:
+        ZipFile: |
+          import os
+          import boto3
+          
+          # TODO: Implement your watchdog timestamp check and SES alert logic here
+          def lambda_handler(event, context):
+              print("Watchdog check execution triggered...")
+              return {'statusCode': 200, 'body': 'Checked successfully'}
+
+  # ==========================================
+  # 4. API GATEWAY (HTTP API)
+  # ==========================================
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: DeadManApi
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+
+  ApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt CheckInFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  ApiRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'POST /checkin'
+      Target: !Join [ '/', [ 'integrations', !Ref ApiIntegration ] ]
+
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: '$default'
+      AutoDeploy: true
+
+  ApiGatewayLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref CheckInFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*"
+
+  # ==========================================
+  # 5. EVENTBRIDGE (SCHEDULED WATCHDOG CRON)
+  # ==========================================
+  DailyWatchdogRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: DeadManWatchdogDailySchedule
+      ScheduleExpression: 'cron(0 12 * * ? *)' # Runs daily at 12:00 PM UTC
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt WatchdogFunction.Arn
+          Id: WatchdogTarget
+
+  EventBridgeLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WatchdogFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DailyWatchdogRule.Arn
+
+  # ==========================================
+  # 6. S3 FRONTEND BUCKET & CLOUDFRONT OAC
+  # ==========================================
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "sprelf-deadman-frontend"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "OAC-${FrontendBucket}"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Aliases:
+          - !Ref DomainName
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            S3OriginConfig: {}
+            OriginAccessControlId: !Ref CloudFrontOAC
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          MinimumProtocolVersion: TLSv1.2_2021
+          SslSupportMethod: sni-only
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${FrontendBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}"
+
+  # ==========================================
+  # 7. ROUTE 53 DNS RECORD
+  # ==========================================
+  Route53Record:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2 # Global CloudFront hosted zone ID (constant across AWS)
+
+  Route53Record2:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: AAAA
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2 # Global CloudFront hosted zone ID (constant across AWS)
+
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway Endpoint URL for check-ins
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/checkin"
+  CloudFrontURL:
+    Description: CloudFront distribution domain name
+    Value: !GetAtt CloudFrontDistribution.DomainName
