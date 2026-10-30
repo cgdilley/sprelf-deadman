@@ -68,6 +68,7 @@ Resources:
                   - dynamodb:GetItem
                   - dynamodb:PutItem
                   - dynamodb:UpdateItem
+                  - dynamodb:Scan
                 Resource: !GetAtt StateTable.Arn
               - Effect: Allow
                 Action:

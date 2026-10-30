@@ -14,18 +14,6 @@ secrets_manager = boto3.client("secretsmanager")
 _pepper = None
 
 
-def get_pepper():
-    global _pepper
-    if _pepper is None:
-        response = secrets_manager.get_secret_value(SecretId=os.environ["PEPPER_SECRET_ARN"])
-        _pepper = response["SecretString"].encode()
-    return _pepper
-
-
-def hash_secret(secret):
-    return hmac.new(get_pepper(), secret.encode(), hashlib.sha256).hexdigest()
-
-
 def main(event, context):
     qsp = event.get("queryStringParameters") or {}
     username = qsp.get("username", "")
@@ -52,3 +40,21 @@ def main(event, context):
     return {"statusCode": 200,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
             "body": json.dumps({"message": "Check-in recorded", "timestamp": timestamp.isoformat()})}
+
+
+#
+
+
+#
+
+
+def get_pepper():
+    global _pepper
+    if _pepper is None:
+        response = secrets_manager.get_secret_value(SecretId=os.environ["PEPPER_SECRET_ARN"])
+        _pepper = response["SecretString"].encode()
+    return _pepper
+
+
+def hash_secret(secret):
+    return hmac.new(get_pepper(), secret.encode(), hashlib.sha256).hexdigest()
