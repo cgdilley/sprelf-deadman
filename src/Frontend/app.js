@@ -34,7 +34,7 @@ function renderLastCheckin() {
 function render() {
     const credentials = getCredentials();
     if (credentials) {
-        currentUser.textContent = credentials.username;
+        currentUser.textContent = credentials.userId;
         loginView.classList.add("hidden");
         checkinView.classList.remove("hidden");
         renderLastCheckin();
@@ -48,12 +48,12 @@ function render() {
 
 loginForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    const username = document.getElementById("login-username").value.trim();
+    const userId = document.getElementById("login-userId").value.trim();
     const secret = document.getElementById("login-secret").value;
-    if (!username || !secret) {
+    if (!userId || !secret) {
         return;
     }
-    localStorage.setItem(CREDENTIALS_KEY, JSON.stringify({ username, secret }));
+    localStorage.setItem(CREDENTIALS_KEY, JSON.stringify({ userId, secret }));
     loginForm.reset();
     render();
 });
@@ -73,11 +73,11 @@ checkinButton.addEventListener("click", async () => {
     checkinButton.disabled = true;
     showStatus("Checking in...");
 
-    // The Lambda reads username and secret from the query string. The timestamp is
+    // The Lambda reads userId and secret from the query string. The timestamp is
     // omitted so the server records the current UTC time (the Lambda treats any
     // supplied timestamp as UTC, which would be wrong for a browser's local time).
     const params = new URLSearchParams({
-        username: credentials.username,
+        userId: credentials.userId,
         secret: credentials.secret,
     });
 

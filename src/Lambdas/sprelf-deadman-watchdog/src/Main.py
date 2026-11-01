@@ -2,6 +2,7 @@ import os
 
 import boto3
 from datetime import datetime, UTC
+from typing import Iterable
 
 TABLE_NAME = "SprelfDeadMan"
 WARN_WINDOW = 36  # HOURS
@@ -18,7 +19,7 @@ ses = boto3.client("ses")
 def main(event, context):
     now = datetime.now(tz=UTC)
     for item in scan_all_items():
-        username = item.get("Username", "")
+        userId = item.get("Username", "")
         timestamp_str = item.get("Timestamp")
         if not timestamp_str:
             continue
@@ -27,32 +28,31 @@ def main(event, context):
             last_checkin = last_checkin.replace(tzinfo=UTC)
         hours_ago = (now - last_checkin).total_seconds() / 3600
 
-        print(f"{username} last checked in {hours_ago:.1f} hours ago (last: {timestamp_str})")
+        print(f"{userId} last checked in {hours_ago:.1f} hours ago (last: {timestamp_str})")
         if hours_ago > EXPIRATION_WINDOW:
             continue
 
         if hours_ago > REPORT_WINDOW:
-            print(f"User '{username}' over report window ({REPORT_WINDOW} hours)")
+            print(f"User '{userId}' over report window ({REPORT_WINDOW} hours)")
             send_email(
                 as_list(item.get("ReportAddresses")),
-                f"{username} failed check-in",
-                f"{username} last checked in {hours_ago:.1f} hours ago (last: {timestamp_str}).\n"
+                f"{userId} failed check-in",
+                f"{userId} last checked in {hours_ago:.1f} hours ago (last: {timestamp_str}).\n"
                 f"Message or call them to ensure they're ok.  If you get no reply, they may be in trouble and need help.\n\n"
-                f"This email is being sent automatically by SprelfDeadMan.  This email will repeat every {REPEAT_RATE} hours "
-                f"until either {username} checks in again or {EXPIRATION_WINDOW} hours have passed since their last check-in.",
+                f"{signature(userId)}"
             )
 
         if hours_ago > WARN_WINDOW:
-            print(f"User '{username}' over report window ({WARN_WINDOW} hours)")
+            print(f"User '{userId}' over warning window ({WARN_WINDOW} hours)")
             send_email(
                 as_list(item.get("WarnAddresses")),
-                f"DeadMan warning: {username}",
-                f"{username} last checked in {hours_ago:.1f} hours ago (last: {timestamp_str}).\n"
+                f"Check-in warning: {userId}",
+                f"{userId} last checked in {hours_ago:.1f} hours ago (last: {timestamp_str}).\n"
                 f"This is a reminder to check in.\n"
                 f"If it has been more than {REPORT_WINDOW} hours since a successful "
                 f"check-in, your emergency contacts will also be informed.\n\n"
-                f"This email is being sent automatically by SprelfDeadMan.  This email will repeat every {REPEAT_RATE} hours "
-                f"until either {username} checks in again or {EXPIRATION_WINDOW} hours have passed since their last check-in.",
+                f"{signature(userId)}"
+
             )
 
 
@@ -62,7 +62,7 @@ def main(event, context):
 #
 
 
-def as_list(value):
+def as_list(value: str | Iterable[str]) -> list[str]:
     if not value:
         return []
     if isinstance(value, str):
@@ -70,7 +70,7 @@ def as_list(value):
     return list(value)
 
 
-def send_email(addresses, subject, body):
+def send_email(addresses: list[str], subject: str, body: str):
     if not addresses:
         return
     print(f"Sending email to {','.join(addresses)}")
@@ -91,3 +91,9 @@ def scan_all_items():
         response = table.scan(ExclusiveStartKey=response["LastEvaluatedKey"])
         items.extend(response.get("Items", []))
     return items
+
+
+def signature(userId) -> str:
+    return f"This email is being sent automatically by <a href=\"https://github.com/cgdilley/sprelf-deadman\"><b>SprelfDeadMan</b></a>.<br/>" \
+           f"This email will repeat every {REPEAT_RATE} hours until either {userId} checks in again " \
+           f"or {EXPIRATION_WINDOW} hours have passed since their last check-in."

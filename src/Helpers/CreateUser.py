@@ -21,7 +21,7 @@ def hash_secret(secret, pepper):
 
 def main():
     parser = argparse.ArgumentParser(description="Create a new user in the SprelfDeadMan DynamoDB table.")
-    parser.add_argument("--username", required=True)
+    parser.add_argument("--userId", required=True)
     parser.add_argument("--warn-addresses", nargs="*", default=[])
     parser.add_argument("--report-addresses", nargs="*", default=[])
     parser.add_argument("--pepper-secret-id", required=True, help="Secrets Manager ID or ARN of the pepper")
@@ -37,8 +37,8 @@ def main():
     table = session.resource("dynamodb").Table(TABLE_NAME)
     table.put_item(
         Item={
-            "UserId": args.username,
-            "Username": args.username,
+            "UserId": args.userId,
+            "Username": args.userId,
             "Secret": hashed_secret,
             "Timestamp": datetime.now(tz=UTC).isoformat(),
             "WarnAddresses": args.warn_addresses,
@@ -46,7 +46,7 @@ def main():
         }
     )
 
-    print(f"Username: {args.username}")
+    print(f"Username: {args.userId}")
     print(f"Secret: {secret}")
 
 
