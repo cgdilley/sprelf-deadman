@@ -94,6 +94,6 @@ def scan_all_items():
 
 
 def signature(userId) -> str:
-    return f"This email is being sent automatically by <a href=\"https://github.com/cgdilley/sprelf-deadman\"><b>SprelfDeadMan</b></a>.<br/>" \
+    return f"This email is being sent automatically by SprelfDeadMan (https://github.com/cgdilley/sprelf-deadman).\n" \
            f"This email will repeat every {REPEAT_RATE} hours until either {userId} checks in again " \
            f"or {EXPIRATION_WINDOW} hours have passed since their last check-in."

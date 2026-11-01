@@ -92,7 +92,7 @@ def main(argv: Optional[list] = None):
     parser.add_argument("--environment-file", default="local.env")
     parser.add_argument("--tags-file", default="tags.toml")
     parser.add_argument("--package-file", default="package.zip")
-    parser.add_argument("--code-bucket", default="sprelf-lambda-zips")
+    parser.add_argument("--code-bucket", default="sprelf-lambda-zips-eu")
     parser.add_argument("--code-bucket-path", default="")
     parser.add_argument("--no-publish-after", dest="publish_after", action="store_false")
     parser.add_argument("--dry-run", action="store_true")
@@ -100,7 +100,7 @@ def main(argv: Optional[list] = None):
     parser.add_argument("--skip-dependencies", action="store_true")
     parser.add_argument("--skip-package-upload", action="store_true")
     parser.add_argument("--cwd", default=None)
-    parser.add_argument("--profile", dest="aws_profile", default=None, help="AWS CLI profile to use for authentication")
+    parser.add_argument("--profile", dest="aws_profile", default="personal", help="AWS CLI profile to use for authentication")
     args = parser.parse_args(argv)
 
     publish(lambda_name=args.lambda_name,
